@@ -25,7 +25,72 @@ The STM32F072 TSC LED Demo is designed to illustrate capacitive touch sensing us
    - Depending on which threshold is met, the corresponding LED is lit.
    - If no group meets its threshold, the blue LED is used to indicate no touch.
 
-Below is a short version of the "Build and Flash" section for your README in GitHub Markdown:
+## Basics of the Touch Sensing Controller (TSC)
+
+The Touch Sensing Controller (TSC) is a dedicated peripheral in some STM32 microcontrollers (like the STM32F072) that enables capacitive touch sensing. It measures the change in capacitance on specially designed electrodes to detect touch events (for example, when a finger approaches or makes contact).
+
+### Key Terminologies
+
+- **Electrodes:**  
+  These are the metal pads on the PCB that form the touch sensor. In my design, each touch “key” (or slider segment) consists of a pair of electrodes:
+  - **LS (Low Side) Electrode:** Acts as one part of the sensing pair.
+  - **Capacitor Electrode:** Completes the capacitive circuit.
+  
+- **Capacitance:**  
+  The ability of a system to store an electric charge. When a finger (which conducts electricity) comes near the electrode, the capacitance increases. The TSC measures this change in capacitance to detect a touch.
+Enable Sampling on Capacitor Electrodes(IOSCR)
+This ensures that the pins used as capacitor electrodes (PA3, PA7, PB1) are actively sampled during the acquisition cycle.
+
+Enable Sensing Channels(IOCCR)
+These channels (PA2, PA6, PB0) are responsible for detecting changes in capacitance. Enabling them allows the TSC to measure the capacitance on each electrode.
+
+Enable Analog Groups(IOGCSR)
+The TSC groups related electrodes into analog groups. Enabling these groups ensures that the electrodes are grouped and measured correctly.
+
+- **fPGCLK (Pulse Clock):**  
+  The clock used by the TSC during the measurement process. In my configuration, fPGCLK is derived by dividing the main system clock (fHCLK) by 32.
+
+  This is the clock signal that drives the pulse generator within the TSC. It is derived by dividing the main system clock (fHCLK) by a configurable prescaler (for example, by 32). fPGCLK is measured in Hertz (Hz) and determines how often the pulse is generated.
+
+    Higher fPG Frequency:
+    Results in shorter pulse durations, which may speed up the acquisition but could reduce sensitivity.
+
+    Lower fPG Frequency:
+    Leads to longer pulse durations, potentially improving sensitivity but slowing down the measurement process.
+
+Thus, configuring fPG correctly is crucial because it directly impacts the accuracy and responsiveness of the touch detection process.
+
+- **tPGCLK (Pulse Period):**  
+  The period of the fPGCLK. The TSC uses multiples of this period to define pulse durations for charging and discharging the electrodes.
+  This is simply the inverse of fPGCLK (tPGCLK = 1/fPGCLK). It represents the time duration of a single pulse. In TSC configurations, pulse durations (both high and low) are defined as multiples of tPGCLK. For instance, if you set the pulse high time to 2 × tPGCLK, the electrode will be driven high for two pulse periods.
+
+- **Pulse High/Low Durations:**  
+  These define the length of time the electrode is charged (high) and discharged (low). In my setup, both durations are set to 2 × tPGCLK, ensuring a consistent measurement window.
+
+- **Maximum Count Value (MCV):**  
+  During an acquisition, the TSC counts the number of pulses before reaching a defined threshold. Setting the maximum count (e.g., 16383 pulses) helps define the sensitivity and range of the measurement.
+
+- **End-of-Acquisition Flag (EOAF):**  
+  A status flag that indicates the completion of a touch measurement cycle. When this flag is set, it means the TSC has finished charging/discharging the electrodes, and the resulting count value is ready to be processed.
+
+- **Hysteresis:**  
+  In touch sensing, hysteresis helps prevent noise or minor fluctuations from triggering false touch events. However, it can also delay the sensor response. In my project, hysteresis is disabled to achieve faster and more immediate measurements.
+
+- **Interrupts:**  
+  Instead of polling continuously for measurement completion, the TSC can generate an interrupt when the EOAF flag is set. This allows the processor to quickly capture the sensor data and process it in an interrupt service routine (ISR), keeping the system responsive.
+
+### How It All Comes Together
+
+1. **Electrode Configuration:**  
+   The TSC is connected to several electrodes (e.g., PA2/PA3, PA6/PA7, PB0/PB1). These are set to an alternate function mode to allow the TSC peripheral to control them.
+
+2. **Measurement Cycle:**  
+   Once the TSC starts a measurement cycle, it charges and discharges the electrodes, counting the number of pulses generated during this process. A lower count typically indicates the presence of a finger (due to increased capacitance).
+
+3. **Interrupt-Driven Operation:**  
+   When the measurement cycle is complete (EOAF is set), an interrupt is generated. The ISR then reads the count values for each electrode group and makes them available for processing (e.g., to update LEDs).
+
+When no finger touches the slider, the electrodes maintain their baseline capacitance, allowing them to charge and discharge rapidly during the TSC’s periodic pulses—resulting in a high pulse count. However, when a finger is placed on the slider, its additional capacitance slows the charging/discharging cycles, yielding a lower pulse count. This measurable difference is crucial because it converts a physical touch (an increase in capacitance) into a digital value that the microcontroller can interpret to detect and locate the touch.
 
 ## Build and Flash
 
@@ -67,7 +132,7 @@ When programming the Touch Sensing Controller (TSC) on an STM32 device, you typi
 4. **Enable Interrupts:** Configure the TSC to generate an End-of-Acquisition interrupt, so that once the measurement cycle is complete, the interrupt handler can quickly capture the sensor data.
 
 **My Implementation:**  
-In our `TSC_init()` function, we follow the steps above:
+In my `TSC_init()` function, we follow the steps above:
 - **Step 1 (Clocks):**  
   We enable the clocks for the TSC and related GPIO ports using the RCC registers.
 - **Step 2 (GPIOs):**  
@@ -78,6 +143,15 @@ In our `TSC_init()` function, we follow the steps above:
   - Pulse high and low durations (2 × tPGCLK, via `CTPH` and `CTPL` bits),
   - Maximum count value (MCV), and  
   - Enable the TSC (TSCE bit).
+  - Configure TSC Peripheral Registers
+The TSC control register (TSC_CR) is set up to:
+
+    Divide the system clock (fHCLK) by 32 to generate the pulse clock (fPGCLK).
+    Set the pulse durations (both high and low phases) to 2 × tPGCLK.
+    Set the maximum count value to 16383 pulses, which defines the sensitivity and acquisition window.
+    Enable the TSC by setting the TSCE bit.
+Why?
+These parameters determine how the TSC charges/discharges the electrodes and how it measures the capacitance change. A lower measured count generally indicates that a finger is present (increased capacitance).
 - **Step 4 (Interrupts):**  
   We enable the End-of-Acquisition interrupt by setting the relevant bit in `TSC_IER` and then in the NVIC, ensuring that `TSC_IRQHandler` is invoked upon completion.
 
