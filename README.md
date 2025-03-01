@@ -182,6 +182,9 @@ These parameters determine how the TSC charges/discharges the electrodes and how
 - **Electrode Mapping and Touch Zones:**  
   The user manual suggests the board can be used as a 3-position slider or as 4 discrete touch keys. Initial attempts to subdivide the three electrode groups into 4 zones using a slider algorithm were unstable. The design was reverted to a simpler method where each electrode group is compared directly to a threshold.
 
+  - **Fourth Zone Overlap with First Electrode:**  
+  Although the manual indicates four keys, the physical hardware only implements three independent electrode pairs. From observation it looks like the area corresponding to the fourth visual segment electrically overlaps with the first electrode group. This causes the red LED (associated with the first electrode) to light up when the far end of the slider is touched.
+
 ## Future Improvements
 - **Advanced Touch Processing:**  
   Implement more sophisticated algorithms (e.g., multi-touch detection, filtering, or weighted averaging) to detect varying touch intensities or positions.
