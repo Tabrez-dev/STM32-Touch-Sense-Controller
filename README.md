@@ -70,6 +70,8 @@ Thus, configuring fPG correctly is crucial because it directly impacts the accur
 - **Maximum Count Value (MCV):**  
   During an acquisition, the TSC counts the number of pulses before reaching a defined threshold. Setting the maximum count (e.g., 16383 pulses) helps define the sensitivity and range of the measurement.
 
+The acquisition cycle in the TSC is the process during which the controller repeatedly charges and discharges the electrodes using its pulse generator. During this cycle, the TSC counts the number of pulses until a threshold is reached. The Maximum Count Value (MCV) defines the upper limit for this pulse count, essentially setting the maximum duration or sensitivity of the acquisition. In a no-touch condition, the electrodes charge quickly, resulting in a count near the MCV, whereas a touch increases capacitance and slows charging, yielding a lower count. This cycle converts the analog touch event into a digital value that the microcontroller can use to determine whether, and where, a touch occurred.
+
 - **End-of-Acquisition Flag (EOAF):**  
   A status flag that indicates the completion of a touch measurement cycle. When this flag is set, it means the TSC has finished charging/discharging the electrodes, and the resulting count value is ready to be processed.
 
@@ -198,4 +200,7 @@ These parameters determine how the TSC charges/discharges the electrodes and how
 - **Dynamic Calibration:**  
   Develop a calibration routine that adjusts touch thresholds dynamically based on environmental conditions.
   
+## TL;DR
+
+The TSC (Touch Sensing Controller) detects a touch by converting changes in capacitance into digital values. It does this by using a pulse generator (fPGCLK) to repeatedly charge and discharge touch electrodes during an acquisition cycle. A counter (in the count register) records how many pulses occur during this cycle: a high count means the electrodes charge quickly (no touch), while a lower count indicates a slower charge due to the additional capacitance of a finger. In short, the TSC uses timed pulses and counting to turn a physical touch into a number that tells the system where and when a touch occurs.
 
