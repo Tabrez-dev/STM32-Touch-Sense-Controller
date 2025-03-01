@@ -2,6 +2,12 @@
 
 This project demonstrates the use of the STM32F072’s Touch Sensing Controller (TSC) in a baremetal environment to drive a linear touch sensor on the STM32F072 Discovery kit. The sensor data is processed in an interrupt-driven manner, and specific LEDs are illuminated based on which electrode group is touched.
 
+
+
+https://github.com/user-attachments/assets/80ca6980-1d82-40ec-9837-bbf23c007448
+
+
+
 ## Introduction
 The STM32F072 TSC LED Demo is designed to illustrate capacitive touch sensing using the STM32F072 Discovery board. In this demo, the board’s touch sensor is divided into three electrode groups. Each group is monitored by the TSC, and based on predefined thresholds, a specific LED is turned on:
 - **Red LED** (Group 1)
