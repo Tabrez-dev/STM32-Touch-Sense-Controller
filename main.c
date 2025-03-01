@@ -227,14 +227,14 @@ void TSC_init(void){
 	*pTSC_CR = ((0x5U<<12) | (0x1U<<28) | (0x1U<<24) | (0x6U<<5) | (0x1U<<0));
 	//2. Disable hysterisis
 	*pTSC_IOHCR &= ~((0xCU<<0) | (0xCU<<6) | (0xCU<<10));
-	//3. Disable end of acquisition interrupt
-	*pTSC_IER |= (1U << 0);
-	//4. Enable sampling on PA3, PA7, PB1
+	//3. Enable sampling on PA3, PA7, PB1
 	*pTSC_IOSCR |= ((0x1U<<3) | (0x1U<<7) | (0x1U<<10));
-	//5. Enable sensing channels on PA2,PA6,PB0 
+	//4. Enable sensing channels on PA2,PA6,PB0 
 	*pTSC_IOCCR |= ((0x1U << 2) | (0x1U << 6) | (0x1U << 9));
-	//6. Enable analog groups in TSC
+	//5. Enable analog groups in TSC
 	*pTSC_IOGCSR |= ((0x1U<<0) | (0x1U<<1) | (0x1U<<2));
+	//6. Disable end of acquisition interrupt
+	*pTSC_IER |= (1U << 0);
 
 	//7. Enable Interrupt mode
 	*pNVIC_ISER |= (1U << 8);
