@@ -81,6 +81,12 @@ The acquisition cycle in the TSC is the process during which the controller repe
 - **Interrupts:**  
   Instead of polling continuously for measurement completion, the TSC can generate an interrupt when the EOAF flag is set. This allows the processor to quickly capture the sensor data and process it in an interrupt service routine (ISR), keeping the system responsive.
 
+tldr:  Prescaler (PGPSC): Adjust how fast the TSC charges/discharges.
+    Charge/Discharge Pulse Length (CTPH, CTPL): Fine-tune measurement accuracy vs. speed.
+    Max Count Value (MCV): Prevent saturating the counter if the electrode has a large capacitance.
+    Hysteresis, Sampling Capacitor, etc.: Improve stability or handle environmental conditions.
+
+
 ### How It All Comes Together
 
 1. **Electrode Configuration:**  
