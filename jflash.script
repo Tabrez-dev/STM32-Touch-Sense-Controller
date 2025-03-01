@@ -1,8 +1,0 @@
-device STM32F072RB
-speed 4000
-si SWD
-erase
-loadbin firmware.bin 0x08000000
-r
-g
-qc

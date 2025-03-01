@@ -1,17 +1,13 @@
 #include <stdint.h>
+
 // Define TSC interrupt status and clear bits (assumed as bit0 for EOAF)
 #define TSC_ISR_EOAF   (1U << 0)
 #define TSC_ICR_EOAIC  (1U << 0)
+
 uint32_t group1_threshold = 1900;
 uint32_t group2_threshold = 3200;
 uint32_t group3_threshold = 3300;
 extern void _estack(void); //defined in linker script
-
-/*----------------------------------------------------------------------------
-  Global variables shared between main code and ISR
-  ----------------------------------------------------------------------------*/
-volatile uint8_t g_button_pressed = 0;
-uint32_t g_button_press_count = 0;
 
 volatile uint32_t sensor_data[3];
 volatile uint8_t new_data_available = 0;
@@ -24,22 +20,18 @@ volatile uint8_t new_data_available = 0;
 uint32_t volatile *pRCC_AHBENR  = (uint32_t*)(0x40021000 + 0x14);  // RCC_AHBENR: enables GPIO clocks; for GPIOA, bit 17
 uint32_t volatile *pRCC_APB2ENR = (uint32_t*)(0x40021000 + 0x18);  // RCC_APB2ENR: enables SYSCFG (bit 0) and USART1 (bit 14)
 
-// GPIOA base: 0x48000000
+// For TSC, PA2 and PA3 (group 1) ,PA6 and  PA7 (group 2), PB0 and PB1 (group 3)
 uint32_t volatile *pGPIOA_MODER = (uint32_t*)(0x48000000 + 0x00);   // GPIOA mode register
 uint32_t volatile *pGPIOA_AFRH  = (uint32_t*)(0x48000000 + 0x24);   // GPIOA alternate function high register
 uint32_t volatile *pGPIOA_AFRL  = (uint32_t*)(0x48000000 + 0x20);   
 
-// For GPIOB base: 0x48000400
+// For TSC
 uint32_t volatile *pGPIOB_MODER = (uint32_t*)(0x48000400 + 0x00);   // GPIOB mode register
 uint32_t volatile *pGPIOB_AFRL  = (uint32_t*)(0x48000400 + 0x20);
 uint32_t volatile *pGPIOB_AFRH  = (uint32_t*)(0x48000400 + 0x24);   
-
-// For GPIOB base: 0x48000800
+//For user LEDs
 uint32_t volatile *pGPIOC_MODER = (uint32_t*)(0x48000800 + 0x00);   // GPIOC mode register
 uint32_t volatile *pGPIOC_ODR   = (uint32_t*)(0x48000800 + 0x14);   // GPIOC output data register
-
-// SYSCFG base: 0x40010000
-uint32_t volatile *pSYSCFG_EXTICR1 = (uint32_t*)(0x40010000 + 0x08); // SYSCFG_EXTICR1: for EXTI0, bits[3:0] (0 = Port A)
 
 // EXTI base: 0x40010400
 uint32_t volatile *pEXTI_IMR  = (uint32_t*)(0x40010400 + 0x00);      // EXTI Interrupt Mask Register
@@ -78,19 +70,15 @@ void usart1_init(void);
 void usart1_send_char(char c);
 void usart1_send_string(const char *s);
 void usart1_send_uint32(uint32_t num);
-void button_init(void);
-void delay(void);
+
 int main(void);
 
 void _reset(void);
-void Default_Handler(void);
 void NMI_Handler(void)       __attribute__((weak, alias("Default_Handler")));
 void HardFault_Handler(void) __attribute__((weak, alias("Default_Handler")));
-void SVC_Handler(void)       __attribute__((weak, alias("Default_Handler")));
-void PendSV_Handler(void)    __attribute__((weak, alias("Default_Handler")));
-void SysTick_Handler(void)   __attribute__((weak, alias("Default_Handler")));
-void EXTI0_1_IRQHandler(void);
 void TSC_IRQHandler(void);
+void Default_Handler(void);
+
 /*----------------------------------------------------------------------------
   USART1 Initialization
   ----------------------------------------------------------------------------*/
@@ -170,38 +158,13 @@ void usart1_send_uint32(uint32_t num)
 }
 
 
-/*----------------------------------------------------------------------------
-  Button Initialization (User button on PA0, connected to EXTI0)
-  ----------------------------------------------------------------------------*/
-void button_init(void)
-{
-	// GPIOA clock is already enabled by usart1_init.
-	// PA0 is used for the user button; input mode is default.
-
-	// Configure SYSCFG_EXTICR1 for EXTI0: For PA0, bits [3:0] must be 0.
-	*pSYSCFG_EXTICR1 &= ~(0xFU);  // 0 selects Port A
-
-	// Enable rising edge trigger for EXTI line 0.
-	*pEXTI_RTSR |= (1 << 0);
-
-	// Unmask EXTI line 0 (enable interrupt for line 0).
-	*pEXTI_IMR |= (1 << 0);
-
-	// Enable NVIC interrupt for EXTI0_1.
-	// For STM32F0, EXTI0_1 is typically enabled by setting bit 5 in NVIC_ISER.
-	*pNVIC_ISER |= (1 << 5);
-}
 
 /*----------------------------------------------------------------------------
-  Simple Delay Function for Debouncing
+  TSC initialisation
   ----------------------------------------------------------------------------*/
-void delay(void)
-{
-	for(uint32_t i = 0; i < 250000; i++);
-}
 
 void TSC_init(void){
-
+	//1. Initialise clocks
 	*pRCC_AHBENR |= (1 << 24);
 	*pRCC_AHBENR |= (1 << 18);
 
@@ -298,27 +261,22 @@ void update_leds(uint32_t g1, uint32_t g2, uint32_t g3)
 	// Assume no touch detected initially; light blue LED.
 	uint8_t led_to_light = 7;  // PC7 for blue LED
 
-	// Only consider groups below their threshold
-	uint32_t min_count = 0xFFFFFFFF;
-	if (g1 < group1_threshold && g1 < min_count)
+	if (g1 < group1_threshold)
 	{
-		min_count = g1;
 		led_to_light = 6;  // red LED on PC6
 	}
-	if (g2 < group2_threshold && g2 < min_count)
+	if (g2 < group2_threshold)
 	{
-		min_count = g2;
 		led_to_light = 8;  // orange LED on PC8
 	}
-	if (g3 < group3_threshold && g3 < min_count)
+	if (g3 < group3_threshold)
 	{
-		min_count = g3;
 		led_to_light = 9;  // green LED on PC9
 	}
 
 	*pGPIOC_ODR |= (0x1U << led_to_light);
-}
 
+}
 
 
 
@@ -363,18 +321,8 @@ int main(void)
 
 
 /*----------------------------------------------------------------------------
-  EXTI0_1 IRQ Handler for PA0 external interrupt and TSC_IRQHandler for linear touch pad
+  TSC_IRQHandler for linear touch pad
   ----------------------------------------------------------------------------*/
-void EXTI0_1_IRQHandler(void)
-{
-
-	// Clear pending flag
-	*pEXTI_PR |= (1 << 0);
-	g_button_pressed = 1;
-
-}
-
-
 
 void TSC_IRQHandler(void)
 {
@@ -431,11 +379,9 @@ void (*const vector_table[7+32])(void) = {
 	_reset,
 	NMI_Handler,
 	HardFault_Handler,
-	Default_Handler,  // Reserved
-	Default_Handler,  // Reserved
-	Default_Handler,  // Reserved
-
-
+	Default_Handler,  
+	Default_Handler,  
+	Default_Handler,  
 	Default_Handler, 
 	Default_Handler,
 	Default_Handler, 
@@ -450,14 +396,12 @@ void (*const vector_table[7+32])(void) = {
 	Default_Handler,  
 	Default_Handler,  
 	Default_Handler,  
-
-	EXTI0_1_IRQHandler,  
-
 	Default_Handler,  
 	Default_Handler,  
-
+	Default_Handler,  
+	
 	TSC_IRQHandler,  
-
+	
 	Default_Handler,  
 	Default_Handler,  
 	Default_Handler, 
