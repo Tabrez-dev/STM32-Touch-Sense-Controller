@@ -6,7 +6,7 @@ This project demonstrates the use of the STM32F072’s Touch Sensing Controller 
 
 https://github.com/user-attachments/assets/80ca6980-1d82-40ec-9837-bbf23c007448
 
-
+Reference manual to learn about TSC: https://www.st.com/content/ccc/resource/technical/document/application_note/group0/ed/0d/4d/87/04/1d/45/e5/DM00445657/files/DM00445657.pdf/jcr:content/translations/en.DM00445657.pdf
 
 ## Introduction
 The STM32F072 TSC LED Demo is designed to illustrate capacitive touch sensing using the STM32F072 Discovery board. In this demo, the board’s touch sensor is divided into three electrode groups. Each group is monitored by the TSC, and based on predefined thresholds, a specific LED is turned on:
